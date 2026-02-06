@@ -1,0 +1,145 @@
+# AI Stock Recommender Monorepo - Root .gitignore
+
+# =====================
+# Python
+# =====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+.venv/
+venv/
+env/
+ENV/
+
+# =====================
+# Node.js / Frontend
+# =====================
+node_modules/
+.pnp
+.pnp.js
+/frontend/build/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =====================
+# IDE / Editor
+# =====================
+.vscode/
+.idea/
+*.iws
+.idea_modules/
+*.swp
+*.swo
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Environment & Secrets
+# =====================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*firebase-adminsdk*.json
+
+# =====================
+# Testing
+# =====================
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# =====================
+# Logs
+# =====================
+*.log
+logs/
+debug.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# =====================
+# Firebase
+# =====================
+.firebase/
+
+# =====================
+# Terraform
+# =====================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+tfplan
+tfplan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+backend/terraform/*.zip
+backend/terraform/migration_response.json
+
+# =====================
+# Local Development
+# =====================
+backend/local_storage/
+backend/stockanalyser_agent/stock_analysis_results.txt
+frontend/deployed.js
+frontend/deploy-production.sh
+
+# =====================
+# Misc
+# =====================
+.gradio/
+.ipynb_checkpoints
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+.aider*
+!.aider.conf.yml
+scratch/
+yolo/
