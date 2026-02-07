@@ -4,34 +4,31 @@ import { apiService } from '../services/api';
 
 interface MessageLimitBannerProps {
   onClose: () => void;
+  onNavigateHome: () => void;
 }
 
-const MessageLimitBanner: React.FC<MessageLimitBannerProps> = ({ onClose }) => {
-  const [isAddingCredits, setIsAddingCredits] = useState(false);
+const MessageLimitBanner: React.FC<MessageLimitBannerProps> = ({ onClose, onNavigateHome }) => {
+  const [isRequesting, setIsRequesting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleAddCredits = async () => {
-    setIsAddingCredits(true);
+  const handleRequestCredits = async () => {
+    setIsRequesting(true);
     setErrorMessage(null);
 
     try {
-      const result = await apiService.addCredits();
-      console.log('Credits added:', result);
+      await apiService.requestCredits();
       setShowSuccess(true);
 
-      // Auto-close success message after 3 seconds
+      // Navigate to About page after 3 seconds
       setTimeout(() => {
-        setShowSuccess(false);
-        onClose();
-        // Refresh the page to update credit balance
-        window.location.reload();
+        onNavigateHome();
       }, 3000);
     } catch (error: any) {
-      console.error('Error adding credits:', error);
-      setErrorMessage(error.message || 'Failed to add credits. Please try again.');
+      console.error('Error requesting credits:', error);
+      setErrorMessage(error.message || 'Failed to request credits. Please try again.');
     } finally {
-      setIsAddingCredits(false);
+      setIsRequesting(false);
     }
   };
 
@@ -46,8 +43,8 @@ const MessageLimitBanner: React.FC<MessageLimitBannerProps> = ({ onClose }) => {
           </div>
           <div className="ml-3 flex-1">
             <p className="text-sm text-green-700">
-              <span className="font-medium">Credits added successfully!</span>
-              {' '}30 message credits have been added to your account. Refreshing...
+              <span className="font-medium">Credit request submitted!</span>
+              {' '}Your credit request has been notified. Once we update the credits, we will send you an email to your registered email ID. Redirecting...
             </p>
           </div>
         </div>
@@ -64,7 +61,7 @@ const MessageLimitBanner: React.FC<MessageLimitBannerProps> = ({ onClose }) => {
         <div className="ml-3 flex-1">
           <p className="text-sm text-red-700">
             <span className="font-medium">Maximum message limit is reached for free tier.</span>
-            {' '}Free users are limited to 30 messages. Add credits to continue.
+            {' '}Free users are limited to 30 messages. Request credits to continue.
           </p>
           {errorMessage && (
             <p className="text-sm text-red-600 mt-2">
@@ -73,11 +70,11 @@ const MessageLimitBanner: React.FC<MessageLimitBannerProps> = ({ onClose }) => {
           )}
           <div className="mt-3">
             <button
-              onClick={handleAddCredits}
-              disabled={isAddingCredits}
+              onClick={handleRequestCredits}
+              disabled={isRequesting}
               className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isAddingCredits ? 'Adding Credits...' : 'Add Credit (Free for now)'}
+              {isRequesting ? 'Requesting Credits...' : 'Request Credits'}
             </button>
           </div>
         </div>

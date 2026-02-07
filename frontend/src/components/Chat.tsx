@@ -480,7 +480,7 @@ const Chat: React.FC<ChatProps> = ({ user, onLogout, onNewChat }) => {
       {/* Message Limit Banner */}
       {showMessageLimitBanner && (
         <div className="px-6 pt-4">
-          <MessageLimitBanner onClose={() => setShowMessageLimitBanner(false)} />
+          <MessageLimitBanner onClose={() => setShowMessageLimitBanner(false)} onNavigateHome={onNewChat} />
         </div>
       )}
 
@@ -603,6 +603,7 @@ const Chat: React.FC<ChatProps> = ({ user, onLogout, onNewChat }) => {
       <AuthorizationErrorModal
         isOpen={showAuthErrorModal}
         onClose={handleCloseAuthErrorModal}
+        onNavigateHome={onNewChat}
         errorMessage={authErrorMessage}
         showAddCredits={isReportLimitError}
       />

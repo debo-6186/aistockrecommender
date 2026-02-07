@@ -394,7 +394,7 @@ def can_user_send_message_credits(db: Session, user_id: str) -> tuple[bool, dict
         # Free users: check user credits
         if user.message_credits <= 0:
             return False, {
-                "message": "Maximum message limit is reached for free tier. Free users are limited to 30 messages. Add credits to continue.",
+                "message": "Maximum message limit is reached for free tier. Free users are limited to 30 messages. Request credits to continue.",
                 "payment_required": True,
                 "payment_url": current_config.PAYPAL_CHECKOUT_URL,
                 "credits_per_package": current_config.CREDITS_PER_PURCHASE,

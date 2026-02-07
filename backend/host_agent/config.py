@@ -41,8 +41,14 @@ class Config:
     PAYPAL_PRICE_PER_PACKAGE = float(os.getenv("PAYPAL_PRICE_PER_PACKAGE", "5.00"))
     PAYPAL_CURRENCY = os.getenv("PAYPAL_CURRENCY", "USD")
 
-    # MCP Configuration - Default to relative path within monorepo (backend/../mcp)
-    MCP_DIRECTORY = os.getenv("MCP_DIRECTORY", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "mcp"))
+    # Activepieces Configuration for credit requests
+    ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL = os.getenv("ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL", "")
+    ACTIVEPIECES_CREDIT_REQUEST_RECIPIENT_EMAIL = os.getenv("ACTIVEPIECES_CREDIT_REQUEST_RECIPIENT_EMAIL", "debo.chakraborty.6@gmail.com")
+    ACTIVEPIECES_USERNAME = os.getenv("ACTIVEPIECES_USERNAME", "")
+    ACTIVEPIECES_PASSWORD = os.getenv("ACTIVEPIECES_PASSWORD", "")
+
+    # MCP Configuration
+    MCP_DIRECTORY = os.getenv("MCP_DIRECTORY", "/Users/debojyotichakraborty/codebase/finhub-mcp")  # Default to local path
 
     @classmethod
     def is_local(cls):

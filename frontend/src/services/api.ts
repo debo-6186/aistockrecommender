@@ -57,17 +57,19 @@ const handleResponse = async (response: Response) => {
 
   if (response.status === 429) {
     const error = await response.json().catch(() => ({}));
-    const errorMessage = error.detail || error.message || error.error || '';
+    const detail = error.detail || error.message || error.error || '';
+    // detail can be a string (rate limit from slowapi) or an object (message credits limit)
+    const errorMessage = typeof detail === 'object' ? (detail.message || JSON.stringify(detail)) : detail;
 
     // Check if this is a rate limit error (from slowapi)
-    if (errorMessage.toLowerCase().includes('rate limit')) {
+    if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('rate limit')) {
       const rateLimitError = new Error('Server is busy. Please wait a moment and try again.');
       (rateLimitError as any).code = 'RATE_LIMIT_EXCEEDED';
       throw rateLimitError;
     }
 
     // Otherwise, it's a message limit error
-    const limitError = new Error(errorMessage || 'Maximum message limit is reached for free tier. Free users are limited to 30 messages. Add credits to continue.');
+    const limitError = new Error(errorMessage || 'Maximum message limit is reached for free tier. Free users are limited to 30 messages. Request credits to continue.');
     (limitError as any).code = 'MESSAGE_LIMIT_REACHED';
     throw limitError;
   }
@@ -460,17 +462,17 @@ export const apiService = {
     }
   },
 
-  async addCredits(): Promise<any> {
+  async requestCredits(): Promise<any> {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/users/add-credits`, {
+      const response = await fetch(`${API_BASE_URL}/users/request-credits`, {
         method: 'POST',
         headers,
       });
 
       return await handleResponse(response);
     } catch (error) {
-      console.error('Error adding credits:', error);
+      console.error('Error requesting credits:', error);
       throw error;
     }
   },
