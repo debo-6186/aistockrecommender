@@ -778,6 +778,10 @@ resource "aws_ecs_task_definition" "host_agent" {
         {
           name  = "REDIS_URL"
           value = "rediss://${aws_elasticache_serverless_cache.redis.endpoint[0].address}:${aws_elasticache_serverless_cache.redis.endpoint[0].port}"
+        },
+        {
+          name  = "ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL"
+          value = "https://cloud.activepieces.com/api/v1/webhooks/xtXqBjfXWanV7S3dYNcaV"
         }
       ]
       secrets = [
@@ -792,6 +796,14 @@ resource "aws_ecs_task_definition" "host_agent" {
         {
           name      = "FIREBASE_SERVICE_ACCOUNT_JSON"
           valueFrom = data.aws_secretsmanager_secret.firebase_service_account.arn
+        },
+        {
+          name      = "ACTIVEPIECES_USERNAME"
+          valueFrom = "${aws_secretsmanager_secret.api_keys.arn}:ACTIVEPIECES_USERNAME::"
+        },
+        {
+          name      = "ACTIVEPIECES_PASSWORD"
+          valueFrom = "${aws_secretsmanager_secret.api_keys.arn}:ACTIVEPIECES_PASSWORD::"
         }
       ]
       logConfiguration = {

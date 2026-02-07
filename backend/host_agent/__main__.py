@@ -5,9 +5,11 @@ This replaces the adk web UI with a REST API for user conversations.
 """
 
 import asyncio
+import base64
 import os
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import List, Optional
 import json
 
@@ -41,8 +43,7 @@ from database import (
     get_stock_recommendation, get_user_stock_recommendations,
     can_user_generate_report, update_user_max_reports, add_user_credits,
     set_user_whitelist_status, get_or_create_whitelist_entry,
-    can_user_send_message_credits, decrement_user_credits, can_session_upload_file,
-    add_user_message_credits
+    can_user_send_message_credits, decrement_user_credits, can_session_upload_file
 )
 from user_api import (
     get_user_profile, get_user_statistics,
@@ -1893,57 +1894,102 @@ def downgrade_user_to_free_endpoint(user_id: str):
     return downgrade_user_to_free(user_id)
 
 
-@app.post("/api/users/add-credits")
-@limiter.limit("5/minute")  # Strict limit for credit operations
-async def add_credits_to_user(
+@app.post("/api/users/request-credits")
+@limiter.limit("5/minute")  # Strict limit for credit request operations
+async def request_credits(
     request: Request,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Add message credits to the current user's account.
-    For now: adds 30 credits for free.
-    Later: will integrate with Stripe payment.
+    Request credits by sending user email and datetime to an Activepieces webhook.
+    Does NOT directly increment credits - an admin will review and add credits manually.
     """
     try:
         user_id = current_user["uid"]
-        logger.info(f"User {user_id} requesting to add credits")
+        logger.info(f"User {user_id} requesting credits via Activepieces webhook")
 
         # Verify user exists
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Add message credits (30 for now, will be configurable with payment later)
-        success, new_total = add_user_message_credits(db, user_id, credits_to_add=30)
+        if not user.email:
+            raise HTTPException(status_code=400, detail="User email not found")
 
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to add message credits")
+        config = get_config()
+        webhook_url = config.ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL
+        username = config.ACTIVEPIECES_USERNAME
+        password = config.ACTIVEPIECES_PASSWORD
 
-        logger.info(f"Added 30 message credits to user {user_id}. New total: {new_total}")
+        if not webhook_url:
+            logger.error("ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL not configured")
+            raise HTTPException(status_code=500, detail="Credit request service not configured")
 
-        # Also add 2 report credits to user's whitelist entry
-        report_credits_added = False
-        if user.email:
-            report_credits_added = add_user_credits(db, user.email, additional_credits=2)
-            if report_credits_added:
-                logger.info(f"Added 2 report credits to user {user_id} ({user.email})")
-            else:
-                logger.warning(f"Failed to add report credits to user {user_id} ({user.email})")
+        if not username or not password:
+            logger.error("Missing Activepieces authentication credentials")
+            raise HTTPException(status_code=500, detail="Credit request service credentials not configured")
 
-        return {
-            "success": True,
-            "message": "Credits added successfully",
-            "credits_added": 30,
-            "report_credits_added": 2 if report_credits_added else 0,
-            "total_credits": new_total,
-            "user_id": user_id
+        # Create Basic Auth header
+        credentials = f"{username}:{password}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+
+        headers = {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Content-Type": "application/json"
         }
+
+        # Prepare payload matching Activepieces flow field mappings:
+        # receiver -> email_to, from -> email (must be Gmail account owner),
+        # reply_to -> to_email (user's email), body -> analysis_response
+        request_datetime = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
+        recipient_email = config.ACTIVEPIECES_CREDIT_REQUEST_RECIPIENT_EMAIL
+        payload = {
+            "email_to": recipient_email,
+            "email": user.email,
+            "to_email": recipient_email,
+            "analysis_response": f"<h2>Credit Request</h2>"
+                f"<p><strong>User Email:</strong> {user.email}</p>"
+                f"<p><strong>User ID:</strong> {user_id}</p>"
+                f"<p><strong>Requested At:</strong> {request_datetime}</p>",
+        }
+
+        logger.info(f"Sending credit request to Activepieces webhook for user {user_id} ({user.email})")
+        logger.info(f"Credit request payload: {payload}")
+        logger.info(f"Activepieces auth: username='{username}', encoded_credentials='{encoded_credentials}'")
+
+        # Send to Activepieces webhook
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            logger.info(f"Credit request sent successfully for user {user_id}")
+            return {
+                "success": True,
+                "message": "Credit request submitted successfully. You will be notified once credits are added.",
+                "user_id": user_id
+            }
+        elif response.status_code == 401:
+            logger.error("Authentication failed with Activepieces webhook")
+            raise HTTPException(status_code=500, detail="Credit request service authentication failed")
+        else:
+            logger.error(f"Activepieces webhook returned status {response.status_code}: {response.text[:200]}")
+            raise HTTPException(status_code=500, detail="Failed to submit credit request")
 
     except HTTPException:
         raise
+    except requests.exceptions.Timeout:
+        logger.error("Timeout sending credit request to Activepieces webhook")
+        raise HTTPException(status_code=500, detail="Credit request service timed out")
+    except requests.exceptions.ConnectionError:
+        logger.error("Connection error sending credit request to Activepieces webhook")
+        raise HTTPException(status_code=500, detail="Unable to reach credit request service")
     except Exception as e:
-        logger.error(f"Error adding credits to user {user_id}: {e}")
+        logger.error(f"Error requesting credits for user: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
