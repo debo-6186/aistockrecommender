@@ -305,7 +305,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">
-            Welcome
+            AI Stock Recommender
           </h2>
           <p className="text-lg text-gray-600">
             Sign in to continue
