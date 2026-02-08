@@ -304,8 +304,14 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">
-            AI Stock Recommender
+          <h2 className="text-4xl sm:text-5xl font-extrabold mb-2">
+            <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+              AI Stock
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent">
+              Recommender
+            </span>
           </h2>
           <p className="text-lg text-gray-600">
             Sign in to continue
