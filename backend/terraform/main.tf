@@ -782,6 +782,10 @@ resource "aws_ecs_task_definition" "host_agent" {
         {
           name  = "ACTIVEPIECES_CREDIT_REQUEST_WEBHOOK_URL"
           value = "https://cloud.activepieces.com/api/v1/webhooks/xtXqBjfXWanV7S3dYNcaV"
+        },
+        {
+          name  = "MCP_DIRECTORY"
+          value = "/app/finhub-mcp"
         }
       ]
       secrets = [
@@ -804,6 +808,10 @@ resource "aws_ecs_task_definition" "host_agent" {
         {
           name      = "ACTIVEPIECES_PASSWORD"
           valueFrom = "${aws_secretsmanager_secret.api_keys.arn}:ACTIVEPIECES_PASSWORD::"
+        },
+        {
+          name      = "FINNHUB_API_KEY"
+          valueFrom = "${aws_secretsmanager_secret.api_keys.arn}:FINNHUB_API_KEY::"
         }
       ]
       logConfiguration = {

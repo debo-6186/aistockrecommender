@@ -444,11 +444,16 @@ async def lifespan(app: FastAPI):
 
             server_script = os.path.join(mcp_directory, "server.py")
 
-            # Use uv run to execute in the correct virtual environment
+            # Use current Python interpreter (dependencies are installed in host_agent venv)
+            # This avoids uv resolution issues on ECS/containers
+            import sys
+            command = sys.executable
+            args = [server_script]
+
             connection_params = StdioConnectionParams(
                 server_params=StdioServerParameters(
-                    command="uv",
-                    args=["run", "--directory", mcp_directory, "python", server_script],
+                    command=command,
+                    args=args,
                     env=mcp_env,
                 )
             )
@@ -2937,7 +2942,7 @@ async def fetch_current_stock_prices(tickers: list) -> dict:
 
 async def fetch_current_prices_from_mcp(tickers: list) -> dict:
     """
-    Fetch current stock prices using MCP tool.
+    Fetch current stock prices using yfinance directly.
 
     Args:
         tickers: List of stock ticker symbols
@@ -2945,48 +2950,22 @@ async def fetch_current_prices_from_mcp(tickers: list) -> dict:
     Returns:
         Dictionary mapping ticker to current price
     """
-    prices = {}
+    import yfinance as yf
 
-    if not stock_mcp_tool:
-        logger.error("MCP tool not available for fetching prices")
-        return prices
+    prices = {}
 
     try:
         for ticker in tickers:
             try:
-                logger.info(f"Fetching current price for {ticker} from MCP")
-                session = await stock_mcp_tool._mcp_session_manager.create_session()
-                stock_data_result = await session.call_tool("get_stock_info", arguments={"symbol": ticker})
-
-                # Parse MCP result object
-                stock_data = None
-                if hasattr(stock_data_result, 'content'):
-                    if isinstance(stock_data_result.content, list) and len(stock_data_result.content) > 0:
-                        content_item = stock_data_result.content[0]
-                        if hasattr(content_item, 'text'):
-                            stock_data = json.loads(content_item.text)
-                elif isinstance(stock_data_result, dict):
-                    stock_data = stock_data_result
-                elif isinstance(stock_data_result, str):
-                    stock_data = json.loads(stock_data_result)
-
-                if stock_data:
-                    stock_type = stock_data.get("stock_type", "EQUITY")
-                    current_price = None
-
-                    if stock_type == "EQUITY":
-                        core_valuation = stock_data.get("core_valuation_metrics", {})
-                        current_price = core_valuation.get("currentPrice")
-                    else:  # ETF
-                        trading_valuation = stock_data.get("trading_valuation", {})
-                        current_price = trading_valuation.get("regularMarketPrice")
-
-                    if current_price:
-                        prices[ticker] = float(current_price)
-                        logger.info(f"Fetched current price for {ticker}: ${current_price}")
-                    else:
-                        logger.warning(f"No price found for {ticker}")
-
+                logger.info(f"Fetching current price for {ticker} via yfinance")
+                t = yf.Ticker(ticker)
+                info = t.info
+                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+                if current_price:
+                    prices[ticker] = float(current_price)
+                    logger.info(f"Fetched current price for {ticker}: {current_price}")
+                else:
+                    logger.warning(f"No price found for {ticker}")
             except Exception as ticker_error:
                 logger.error(f"Error fetching price for {ticker}: {ticker_error}")
                 continue
