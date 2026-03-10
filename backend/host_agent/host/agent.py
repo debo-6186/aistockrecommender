@@ -224,7 +224,7 @@ class HostAgent:
         for attempt in range(max_retries):
             try:
                 return Agent(
-                    model="gemini-3-pro-preview",
+                    model="gemini-3.1-pro-preview",
                     name="Host_Agent",
                     instruction=self.root_instruction,
                     description="This Host agent orchestrates stock allocation logic.",
@@ -1195,7 +1195,7 @@ Return ONLY a JSON array of uppercase ticker symbols. If a name is already a tic
                         time.sleep(delay)
 
                     response = client.models.generate_content(
-                        model="gemini-3-pro-preview",
+                        model="gemini-3.1-pro-preview",
                         contents=ticker_request,
                         config=GenerateContentConfig(
                             system_instruction=[system_prompt]
@@ -1914,7 +1914,7 @@ Check if ALL tickers belong to {expected_market} market. Return valid and invali
 
             # Make the LLM call
             response = client.models.generate_content(
-                model="gemini-3-pro-preview",
+                model="gemini-3.1-pro-preview",
                 contents=user_prompt,
                 config=GenerateContentConfig(system_instruction=[system_prompt])
             )

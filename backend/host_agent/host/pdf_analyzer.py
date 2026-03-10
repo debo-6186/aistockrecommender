@@ -204,7 +204,7 @@ Provide only the comma-separated ticker list as specified."""
                     time.sleep(delay)
 
                 response = client.models.generate_content(
-                    model="gemini-3-pro-preview",
+                    model="gemini-3.1-pro-preview",
                     contents=user_prompt,
                     config=GenerateContentConfig(
                         system_instruction=[system_prompt]

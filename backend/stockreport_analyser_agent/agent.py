@@ -152,7 +152,7 @@ Provide only the comma-separated ticker list as specified."""
                     time.sleep(delay)
 
                 response = client.models.generate_content(
-                    model="gemini-3-pro-preview",
+                    model="gemini-3.1-pro-preview",
                     contents=user_prompt,
                     config=GenerateContentConfig(
                         system_instruction=[system_prompt]
@@ -274,7 +274,7 @@ handle_portfolio_analysis_error_tool = FunctionTool(handle_portfolio_analysis_er
 def create_agent() -> Agent:
     """Constructs the ADK agent for stock report analysis."""
     return Agent(
-        model="gemini-3-pro-preview",
+        model="gemini-3.1-pro-preview",
         name="stock_report_analyser_agent",
         instruction="""
             **Role:** Analyze portfolio statements and extract stock information.
