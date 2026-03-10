@@ -419,7 +419,7 @@ Extract and format the information in a clear, structured way that preserves all
         # Generate text extraction using Vision LLM
         logger.info("Generating text extraction from image using Vision LLM...")
         response = client.models.generate_content(
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             contents=[image_part, "Extract all portfolio data from this image."],
             config=GenerateContentConfig(
                 system_instruction=[system_prompt]
@@ -935,7 +935,7 @@ Provide only the comma-separated ticker list with percentages as specified."""
                     time.sleep(delay)
 
                 response = client.models.generate_content(
-                    model="gemini-3-pro-preview",
+                    model="gemini-3.1-pro-preview",
                     contents=user_prompt,
                     config=GenerateContentConfig(
                         system_instruction=[system_prompt]

@@ -196,7 +196,7 @@ MARKET_PREFERENCE: INDIA"""
                         time.sleep(delay)
 
                     response = client.models.generate_content(
-                        model="gemini-3-pro-preview",
+                        model="gemini-3.1-pro-preview",
                         contents=analysis_request,
                         config=GenerateContentConfig(
                             system_instruction=[system_prompt]
@@ -589,9 +589,9 @@ STOCK ANALYSIS DATA:
                         logger.info(f"Retrying portfolio analysis after {delay:.2f}s delay (attempt {attempt + 1}/{max_retries})")
                         time.sleep(delay)
 
-                    # Call Gemini API with gemini-3-pro-preview model
+                    # Call Gemini API with gemini-3.1-pro-preview model
                     response = client.models.generate_content(
-                        model="gemini-3-pro-preview",
+                        model="gemini-3.1-pro-preview",
                         contents=user_prompt,
                         config=GenerateContentConfig(
                             system_instruction=[system_prompt],
@@ -915,7 +915,7 @@ STOCK ANALYSIS DATA:
                         time.sleep(delay)
 
                     response = client.models.generate_content(
-                        model="gemini-3-pro-preview",
+                        model="gemini-3.1-pro-preview",
                         contents=portfolio_analysis,
                         config=GenerateContentConfig(
                             system_instruction=[system_prompt]
@@ -1517,7 +1517,7 @@ The detailed analysis has been emailed to you."""
     def create_agent(self) -> Agent:
         """Constructs the ADK agent for stock analysis and allocation management."""
         return Agent(
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             name="stock_analyser_agent",
             instruction="""**Role:** You are a professional stock analyst using a programmatic workflow.
 
