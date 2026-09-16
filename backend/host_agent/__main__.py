@@ -222,7 +222,7 @@ from config import current_config as Config
 # Agent URLs configuration - read from environment via config
 AGENT_URLS = [
     Config.STOCK_ANALYSER_AGENT_URL,  # Stock Analyser Agent
-    # Stock Report Analyser Agent removed - now integrated locally as a sub-agent
+    Config.DOCUMENT_ANALYSER_AGENT_URL,  # Document Analyser Agent
 ]
 
 
@@ -455,7 +455,10 @@ async def lifespan(app: FastAPI):
                     command=command,
                     args=args,
                     env=mcp_env,
-                )
+                ),
+                # The default is 5s, and it governs every MCP call, not just
+                # the initial connection - too short for a live yfinance round trip.
+                timeout=float(os.getenv("MCP_TIMEOUT", "30")),
             )
             stock_mcp_tool = MCPToolset(
                 connection_params=connection_params,
@@ -3224,7 +3227,8 @@ def main():
             logger.error("GOOGLE_API_KEY environment variable not set and GOOGLE_GENAI_USE_VERTEXAI is not TRUE.")
             exit(1)
 
-        logger.info(f"GOOGLE_API_KEY: {os.getenv("GOOGLE_API_KEY")}")
+        # Never log the key itself - only whether one is present.
+        logger.info("GOOGLE_API_KEY configured: %s", bool(os.getenv("GOOGLE_API_KEY")))
         
         host = "0.0.0.0"  # Listen on all interfaces to accept external connections
         port = 10001  # Different port from other agents

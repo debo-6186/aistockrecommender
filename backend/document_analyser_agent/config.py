@@ -26,7 +26,10 @@ class Config:
     # Host Agent Configuration
     HOST_AGENT_PORT = int(os.getenv("HOST_AGENT_PORT", "10001"))
     STOCK_ANALYSER_AGENT_URL = os.getenv("STOCK_ANALYSER_AGENT_URL", "http://localhost:10002")
-    STOCK_REPORT_ANALYSER_AGENT_URL = os.getenv("STOCK_REPORT_ANALYSER_AGENT_URL", "http://localhost:10003")
+    DOCUMENT_ANALYSER_AGENT_URL = os.getenv(
+        "DOCUMENT_ANALYSER_AGENT_URL",
+        os.getenv("STOCK_REPORT_ANALYSER_AGENT_URL", "http://localhost:10003"),
+    )
 
     # Free user message limit
     FREE_USER_MESSAGE_LIMIT = int(os.getenv("FREE_USER_MESSAGE_LIMIT", "30"))

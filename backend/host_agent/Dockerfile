@@ -22,6 +22,9 @@ COPY host_agent/user_api.py ./
 COPY host_agent/host/ ./host/
 COPY host_agent/migrations/ ./migrations/
 
+# Shared agent building blocks (model config, session service, schemas)
+COPY agent_core/ ./agent_core/
+
 # Copy finhub-mcp server files
 RUN mkdir -p /app/finhub-mcp
 COPY finhub-mcp/server.py /app/finhub-mcp/

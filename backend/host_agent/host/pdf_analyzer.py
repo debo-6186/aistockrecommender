@@ -13,6 +13,13 @@ import logging
 from google import genai
 from google.genai.types import GenerateContentConfig
 
+import sys as _sys
+import os as _os
+
+# The shared model configuration lives one level above host_agent/.
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+from agent_core.models import MODEL
+
 # Import database functions and config at the top
 try:
     from database import get_db, mark_portfolio_statement_uploaded
@@ -204,7 +211,7 @@ Provide only the comma-separated ticker list as specified."""
                     time.sleep(delay)
 
                 response = client.models.generate_content(
-                    model="gemini-3.1-pro-preview",
+                    model=MODEL,
                     contents=user_prompt,
                     config=GenerateContentConfig(
                         system_instruction=[system_prompt]

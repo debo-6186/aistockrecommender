@@ -24,7 +24,11 @@ COPY stockanalyser_agent/integration_example.py ./
 COPY stockanalyser_agent/section_extractor.py ./
 COPY stockanalyser_agent/logger.py ./
 COPY stockanalyser_agent/limited_context_session_service.py ./
+COPY stockanalyser_agent/analysis_prompts.py ./
 COPY stockanalyser_agent/.env.example ./.env.example
+
+# Shared agent building blocks (model config, session service, schemas)
+COPY agent_core/ ./agent_core/
 
 # Copy database.py from host_agent (resolving symlink)
 COPY host_agent/database.py ./database.py

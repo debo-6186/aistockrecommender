@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class StockReportAnalyserAgentExecutor(AgentExecutor):
+class DocumentAnalyserAgentExecutor(AgentExecutor):
     """An AgentExecutor that runs Stock Report Analyser's ADK-based Agent."""
 
     def __init__(self, runner: Runner):
@@ -36,7 +36,7 @@ class StockReportAnalyserAgentExecutor(AgentExecutor):
         self, session_id, new_message: types.Content
     ) -> AsyncGenerator[Event, None]:
         return self.runner.run_async(
-            session_id=session_id, user_id="stock_report_analyser_agent", new_message=new_message
+            session_id=session_id, user_id="document_analyser_agent", new_message=new_message
         )
 
     async def _run_agent_with_retry(
@@ -187,12 +187,12 @@ class StockReportAnalyserAgentExecutor(AgentExecutor):
 
     async def _upsert_session(self, session_id: str):
         session = await self.runner.session_service.get_session(
-            app_name=self.runner.app_name, user_id="stock_report_analyser_agent", session_id=session_id
+            app_name=self.runner.app_name, user_id="document_analyser_agent", session_id=session_id
         )
         if session is None:
             session = await self.runner.session_service.create_session(
                 app_name=self.runner.app_name,
-                user_id="stock_report_analyser_agent",
+                user_id="document_analyser_agent",
                 session_id=session_id,
             )
         if session is None:

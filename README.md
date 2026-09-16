@@ -2,14 +2,17 @@
 
 A multi-agent AI system for stock analysis and portfolio recommendations. The platform uses Google's Agent Development Kit (ADK) with the A2A (Agent-to-Agent) protocol, where a Host Agent orchestrates specialized sub-agents to provide stock analysis, portfolio report analysis, and investment recommendations.
 
+Every agent is model-driven rather than script-driven: each is given a goal, a set of tools and a live view of what it already knows, and decides for itself what to do next. Conversation history and collected facts live in ADK session state, persisted to PostgreSQL. See [Agent Design](#agent-design) for the shape of that.
+
 ## Components
 
 | Component | Tech Stack | Port | Purpose |
 |---|---|---|---|
 | **Frontend** | React 19, TypeScript, Tailwind CSS, Firebase Auth | 3000 | User interface with chat, auth, profile, and portfolio views |
 | **Host Agent** | FastAPI, Google ADK, A2A SDK, SQLAlchemy | 10001 | Orchestrates agents, serves REST API, manages sessions |
-| **Stock Analyser Agent** | Google ADK, A2A SDK, yfinance, Perplexity AI | 10002 | Analyzes stocks, fetches market data, generates recommendations |
-| **Stock Report Analyser Agent** | Google ADK, A2A SDK, PyMuPDF | 10003 | Analyzes uploaded portfolio PDFs and financial documents |
+| **Stock Analyser Agent** | Google ADK, A2A SDK, yfinance, Perplexity AI | 10002 | Analyzes stocks, fetches market data, prices and saves the allocation |
+| **Report Generator Agent** | Google ADK, A2A SDK | 10004 | Writes the covering note for a finished allocation and emails it |
+| **Document Analyser Agent** | Google ADK, A2A SDK, PyMuPDF, Gemini Vision | 10003 | Reads uploaded documents of any supported type - OCR plus schema-validated extraction |
 | **MCP Server** | FastMCP, yfinance, pandas_ta | stdio | Provides stock data tools (prices, news, technicals) to agents |
 | **PostgreSQL** | PostgreSQL 15 | 5432 | Users, sessions, messages, recommendations |
 | **Redis** | Redis | 6379 | Async task tracking for long-running agent operations |
@@ -140,13 +143,16 @@ python __main__.py
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `GOOGLE_API_KEY` | Yes | -- | Google Gemini API key |
-| `DATABASE_URL` | Yes | `postgresql://postgres:password@localhost:5432/finance_a2a` | PostgreSQL connection string |
+| `GEMINI_MODEL` | No | `gemini-3.7-flash` | Model every agent runs on |
+| `GEMINI_THINKING_BUDGET` | No | (unset) | Thinking token budget. Left unset, no thinking config is sent |
+| `DATABASE_URL` | Yes | `postgresql://postgres:password@localhost:5432/finance_a2a` | PostgreSQL connection string. Also backs ADK session state |
 | `FIREBASE_PROJECT_ID` | Yes | -- | Firebase project ID for auth verification |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Yes | -- | Path to Firebase service account JSON |
 | `HOST_AGENT_PORT` | No | `10001` | Port for the Host Agent API |
 | `STOCK_ANALYSER_AGENT_URL` | No | `http://localhost:10002` | Stock Analyser Agent URL |
-| `STOCK_REPORT_ANALYSER_AGENT_URL` | No | `http://localhost:10003` | Stock Report Analyser Agent URL |
+| `DOCUMENT_ANALYSER_AGENT_URL` | No | `http://localhost:10003` | Document Analyser Agent URL (falls back to `STOCK_REPORT_ANALYSER_AGENT_URL`) |
 | `MCP_DIRECTORY` | No | (local path) | Path to the `mcp/` directory |
+| `STOCK_REPORT_GENERATOR_AGENT_URL` | No | `http://localhost:10004` | Report Generator URL (set on the Stock Analyser) |
 | `REDIS_URL` | No | `redis://localhost:6379` | Redis URL for async task tracking |
 | `ENVIRONMENT` | No | `local` | `local` or `production` |
 
@@ -206,28 +212,86 @@ The agent starts on **port 10002** and exposes the A2A protocol endpoint. It reg
 
 ---
 
-### 3c. Stock Report Analyser Agent (port 10003)
+### 3c. Document Analyser Agent (port 10003)
 
-Handles uploaded PDF portfolio statements and financial documents.
+Reads every uploaded document the product accepts. One agent handles all types;
+what differs per type is an entry in `doc_types.py`, not a code path.
 
 ```bash
-cd backend/stockreport_analyser_agent
+cd backend/document_analyser_agent
 
-# Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies (uses pyproject.toml)
 pip install -e .
 
-# Configure environment (uses same Google API key)
-# Create a .env file with GOOGLE_API_KEY
-
-# Run
+# Create a .env file with GOOGLE_API_KEY and DATABASE_URL
 python __main__.py
 ```
 
-The agent starts on **port 10003** with the skill `stock_report_analyse` -- "Analyze stock reports, earnings statements, quarterly reports, and other financial documents."
+The agent starts on **port 10003** with the skill `document_analyse`.
+
+#### Supported document types
+
+| Type | Schema | What it extracts |
+|---|---|---|
+| `portfolio_statement` | `PortfolioExtraction` | Holdings, tickers, allocations, share counts, and which positions lack a count |
+| `contract_note` | `ContractNote` | Individual executions with side, quantity, price and date, plus total charges |
+| `annual_report` | `AnnualReportSummary` | Company, period, revenue, net income, EPS, highlights and stated risks |
+
+**Adding a type** means adding a Pydantic schema to `agent_core/schemas.py` and a
+`DocType` entry to `document_analyser_agent/doc_types.py` - a schema, an
+extraction instruction, and a hint the classifier recognises it by. The agent,
+the reader and the host need no changes.
+
+#### How a document is read
+
+One agent does both halves - getting text out of the file, and making sense of
+that text. The route through the first half is chosen from the file's contents,
+not its extension:
+
+1. `fetch_upload` finds the bytes in local storage or S3.
+2. A PDF is opened and its text layer read. If that yields under 120 characters
+   the file is treated as a scan: pages are rasterised at 2x and transcribed by
+   Gemini Vision.
+3. An image goes straight to Gemini Vision.
+4. `classify_document` establishes the type, `extract_document` extracts it
+   against that type's schema.
+
+Swapping Gemini Vision for another OCR backend is a change behind
+`reader.py` - the agent, the registry and the host do not notice.
+
+#### How the result gets back
+
+A2A carries text, and asking a model to echo a long holdings list back as JSON
+invites truncation. So the structured extraction is written to the
+`agent_states` table under `document_analyser`, keyed by session, and the host
+reads it from there after the call returns. The A2A reply itself is prose.
+
+### 3d. Report Generator Agent (port 10004)
+
+Turns a finished allocation into a report someone will read, and sends it.
+
+```bash
+cd backend/stockreport_generator_agent
+
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Create a .env with GOOGLE_API_KEY, DATABASE_URL,
+# ACTIVEPIECES_USERNAME and ACTIVEPIECES_PASSWORD
+python __main__.py
+```
+
+Starts on **port 10004** with the skill `generate_stock_report`.
+
+The Stock Analyser calls it once the allocation is priced and saved. The report
+itself travels through the `agent_states` table under `priced_report`; the A2A
+message carries only the session id.
+
+**Why it is separate.** Analysis and delivery fail for different reasons and
+should not fail together. By the time this agent runs, the recommendation is
+already in the database — so a webhook outage costs the email, not the analysis.
 
 ---
 
@@ -286,13 +350,16 @@ redis-server
 # Terminal 3 - Stock Analyser Agent
 cd backend/stockanalyser_agent && source .venv/bin/activate && python __main__.py
 
-# Terminal 4 - Stock Report Analyser Agent
-cd backend/stockreport_analyser_agent && source .venv/bin/activate && python __main__.py
+# Terminal 4 - Document Analyser Agent
+cd backend/document_analyser_agent && source .venv/bin/activate && python __main__.py
 
-# Terminal 5 - Host Agent (start after remote agents are up)
+# Terminal 5 - Report Generator Agent
+cd backend/stockreport_generator_agent && source .venv/bin/activate && python __main__.py
+
+# Terminal 6 - Host Agent (start after remote agents are up)
 cd backend/host_agent && source .venv/bin/activate && python __main__.py
 
-# Terminal 6 - Frontend
+# Terminal 7 - Frontend
 cd frontend && npm start
 ```
 
@@ -301,6 +368,8 @@ cd frontend && npm start
 - Frontend: http://localhost:3000
 - Host Agent API: http://localhost:10001/health
 - Stock Analyser Agent: http://localhost:10002/health
+- Document Analyser Agent: http://localhost:10003/.well-known/agent-card.json
+- Report Generator Agent: http://localhost:10004/health
 - Agent connectivity: http://localhost:10001/agents/status
 
 ---
@@ -313,3 +382,89 @@ cd frontend && npm start
 4. Sub-agents use MCP tools (stock data via yfinance) and Google Gemini (LLM reasoning) to generate analysis
 5. Results flow back through A2A to Host Agent, which persists them to the database and returns the response to the frontend
 6. For portfolio performance tracking, Host Agent calls MCP tools directly to fetch current stock prices
+
+---
+
+## Agent Design
+
+The agents are given goals and constraints, not procedures. There is no scripted
+step order anywhere in the backend; what each agent does next is the model's
+decision, bounded by what its tools will let it do.
+
+### Shared foundations (`backend/agent_core/`)
+
+| Module | Purpose |
+|---|---|
+| `models.py` | The one place the Gemini model id and generation config are decided |
+| `sessions.py` | PostgreSQL-backed ADK session service, shared by all three agents |
+| `schemas.py` | Pydantic response schemas, so structured model output is valid by construction |
+| `callbacks.py` | Tool and agent tracing applied uniformly across agents |
+
+### Host Agent - the coordinator
+
+A conversational agent that collects what an analysis needs: market, holdings,
+share counts, budget, strategy and an email address. Its instruction states the
+objective and the rules, and ends with a live fact sheet rendered from session
+state, so the model can see on every turn what is already settled and never
+re-asks. It chooses the order of questions, takes facts the user volunteers out
+of order, and groups questions when that saves a round trip.
+
+Dispatch is an explicit tool, `request_full_analysis`. It checks that the brief
+is complete and, when it is not, tells the agent exactly what is missing rather
+than failing quietly. Providing an email address does not by itself start an
+analysis.
+
+### Report Generator Agent - the writer
+
+Receives a session id once the allocation is priced and saved, collects the
+report from Postgres, and writes the covering note that goes above the tables -
+what was analysed, what the allocation does, and what the investor should know
+before acting. The note is produced by a sub-agent with a Pydantic output
+schema; rendering and delivery are plain Python.
+
+It is a separate service because analysis and delivery fail for different
+reasons. The recommendation is saved before this agent is called, so a delivery
+outage never costs the analysis.
+
+### Stock Analyser Agent - the analyst
+
+Receives a brief over A2A, records it, then researches the stocks using the full
+MCP toolset - quotes, news, price history and analyst consensus - deciding for
+itself which calls are worth making for which stock. An `after_tool_callback`
+captures every market data payload into session state and hands the model back a
+digest, so the research accumulates without flooding the context.
+
+The allocation itself is produced by a specialist sub-agent with a Pydantic
+output schema, invoked as a tool. Money arithmetic - share counts from live
+prices - is plain Python in `deliver_report`, never the model's job. That tool
+prices the report, saves it, and hands it to the Report Generator; it does not
+send anything itself.
+
+### Document Analyser Agent - the reader
+
+Locates an uploaded file, gets text out of it - by text layer where there is
+one, by vision OCR where there is not - and extracts it against the schema for
+its type. One agent covers every document type because the pipeline is
+identical and only the schema differs; a new type is a registry entry in
+`doc_types.py`.
+
+The structured result travels back to the coordinator through Postgres rather
+than through the A2A reply, so nothing depends on a model echoing a long
+extraction accurately.
+
+### How question order is decided
+
+The coordinator does not choose what to ask. `next_fact` in
+`host_agent/host/prompts.py` walks a fixed priority order - market, holdings,
+budget, strategy, email - and returns the first one session state does not yet
+hold. That becomes a `NEXT:` directive in the instruction, rebuilt every turn.
+
+The order is fixed, so the conversation is predictable and testable. The
+skipping is what keeps it from feeling like a form: a user who opens with *"I
+hold 50 AAPL and 30 MSFT, US market, $10k to invest"* has four facts recorded
+in one turn and is asked about strategy next, not marched through questions
+they already answered.
+
+The model still chooses the wording, still handles whatever the user actually
+says, and still takes facts out of order. It just does not decide which gap to
+close next.

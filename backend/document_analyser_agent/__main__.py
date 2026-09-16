@@ -1,3 +1,4 @@
+import logging
 import os
 
 import uvicorn
@@ -10,24 +11,21 @@ from a2a.types import (
     AgentSkill,
 )
 from agent import create_agent
-from agent_executor import StockAnalyserAgentExecutor
+from agent_executor import DocumentAnalyserAgentExecutor
 from dotenv import load_dotenv
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
-from logger import setup_logging, get_logger
 
-import os as _os
 import sys as _sys
 
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agent_core.sessions import get_session_service
 
 load_dotenv()
 
-# Setup logging
-setup_logging()
-logger = get_logger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class MissingAPIKeyError(Exception):
@@ -38,8 +36,11 @@ class MissingAPIKeyError(Exception):
 
 def main():
     """Starts the agent server."""
-    host = "0.0.0.0"  # Listen on all interfaces to accept connections from other containers
-    port = 10002
+    # Bind on all interfaces so other containers can reach it; the card
+    # advertises the address callers should actually use.
+    host = "0.0.0.0"
+    port = 10003
+    advertised = os.getenv("DOCUMENT_ANALYSER_AGENT_URL", f"http://localhost:{port}")
     try:
         # Check for API key only if Vertex AI is not configured
         if not os.getenv("GOOGLE_GENAI_USE_VERTEXAI") == "TRUE":
@@ -50,26 +51,29 @@ def main():
 
         capabilities = AgentCapabilities(streaming=True)
         skill = AgentSkill(
-            id="stock_analyse",
-            name="Analyse a stock",
+            id="document_analyse",
+            name="Analyse financial documents",
             description=(
-                "Research a set of stocks against an investor's budget and stated "
-                "strategy, then produce and email a full allocation report with "
-                "per-stock BUY/HOLD/SELL calls."
+                "Read an uploaded financial document - a portfolio statement, a broker "
+                "contract note, or a company annual or quarterly report - and return its "
+                "contents as structured data. Handles PDFs with a text layer, scanned "
+                "PDFs and screenshots, using OCR where there is no text to extract."
             ),
-            tags=["stock", "analysis", "portfolio", "allocation"],
-            examples=["Analyse AAPL, MSFT and NVDA for a $10,000 long-term portfolio"],
+            tags=["document", "ocr", "portfolio", "contract-note", "annual-report"],
+            examples=[
+                "Read the portfolio statement uploaded for this session",
+                "Extract the trades from this contract note",
+                "Summarise the figures in this quarterly report",
+            ],
         )
-        # Use service discovery hostname in AWS, localhost for local development
-        agent_url = os.getenv("AGENT_URL", f"http://{host}:{port}/")
         agent_card = AgentCard(
-            name="Stock Analyser Agent",
+            name="document_analyser_agent",
             description=(
-                "Researches US and Indian equities and builds a budget-weighted "
-                "allocation report with buy, hold and sell recommendations."
+                "Reads uploaded financial documents of any supported type and returns "
+                "structured, schema-validated data from them."
             ),
-            url=agent_url,
-            version="1.0.0",
+            url=f"{advertised.rstrip('/')}/",
+            version="2.0.0",
             defaultInputModes=["text/plain"],
             defaultOutputModes=["text/plain"],
             capabilities=capabilities,
@@ -84,7 +88,7 @@ def main():
             session_service=get_session_service(),
             memory_service=InMemoryMemoryService(),
         )
-        agent_executor = StockAnalyserAgentExecutor(runner)
+        agent_executor = DocumentAnalyserAgentExecutor(runner)
 
         request_handler = DefaultRequestHandler(
             agent_executor=agent_executor,
@@ -94,20 +98,19 @@ def main():
             agent_card=agent_card, http_handler=request_handler
         )
 
-        # Build the Starlette app
         app = server.build()
 
-        # Add custom health check endpoint
+        # Orchestrators health-check this before routing to the agent, so it has
+        # to exist - a missing route reads as an unhealthy task, not a missing
+        # endpoint, and the container is restarted in a loop.
         from starlette.responses import JSONResponse
         from starlette.routing import Route
 
         async def health_check(request):
-            return JSONResponse({"status": "healthy", "service": "Stock Analyser Agent"})
+            return JSONResponse({"status": "healthy", "service": "Document Analyser Agent"})
 
-        # Add health route to the app
         app.routes.insert(0, Route("/health", health_check))
-
-        logger.info("Added custom /health endpoint")
+        logger.info("Added /health endpoint")
 
         uvicorn.run(app, host=host, port=port)
     except MissingAPIKeyError as e:

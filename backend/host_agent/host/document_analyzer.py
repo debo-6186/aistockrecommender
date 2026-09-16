@@ -16,6 +16,13 @@ import logging
 from typing import Tuple
 from google import genai
 from google.genai.types import GenerateContentConfig, Part
+
+import sys as _sys
+import os as _os
+
+# The shared model configuration lives one level above host_agent/.
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+from agent_core.models import MODEL
 from PIL import Image
 
 # Import database functions and config at the top
@@ -112,7 +119,7 @@ Provide your verification response in the specified JSON format."""
 
             logger.info("Verifying PDF document with LLM...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=MODEL,
                 contents=user_prompt,
                 config=GenerateContentConfig(
                     system_instruction=[system_prompt]
@@ -134,7 +141,7 @@ Provide your verification response in the specified JSON format."""
 
             logger.info("Verifying image document with Vision LLM...")
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=MODEL,
                 contents=[image_part, user_prompt],
                 config=GenerateContentConfig(
                     system_instruction=[system_prompt]
@@ -259,7 +266,7 @@ Provide your verification response in the specified JSON format."""
 
         logger.info("Verifying text input with LLM...")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=MODEL,
             contents=user_prompt,
             config=GenerateContentConfig(
                 system_instruction=[system_prompt]
@@ -419,7 +426,7 @@ Extract and format the information in a clear, structured way that preserves all
         # Generate text extraction using Vision LLM
         logger.info("Generating text extraction from image using Vision LLM...")
         response = client.models.generate_content(
-            model="gemini-3.1-pro-preview",
+            model=MODEL,
             contents=[image_part, "Extract all portfolio data from this image."],
             config=GenerateContentConfig(
                 system_instruction=[system_prompt]
@@ -686,7 +693,7 @@ Respond in the specified JSON format."""
 
         logger.info("Validating exchange consistency with LLM...")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=MODEL,
             contents=user_prompt,
             config=GenerateContentConfig(
                 system_instruction=[system_prompt]
@@ -935,7 +942,7 @@ Provide only the comma-separated ticker list with percentages as specified."""
                     time.sleep(delay)
 
                 response = client.models.generate_content(
-                    model="gemini-3.1-pro-preview",
+                    model=MODEL,
                     contents=user_prompt,
                     config=GenerateContentConfig(
                         system_instruction=[system_prompt]

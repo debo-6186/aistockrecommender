@@ -1,0 +1,3 @@
+api.aistockrecommender.com {
+	reverse_proxy host_agent:10001
+}

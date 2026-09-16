@@ -12,7 +12,7 @@ load_dotenv()
 def test_webhook_function():
     """Test the webhook function with sample data."""
     try:
-        from agent import send_analysis_to_webhook
+        from report import send_report_email
         
         print("✅ Import successful")
         
@@ -22,7 +22,7 @@ def test_webhook_function():
         print(f"📤 Testing webhook function with data: {test_analysis[:50]}...")
         
         # Test the function
-        result = send_analysis_to_webhook(test_analysis)
+        result = send_report_email(test_analysis, email_to=os.getenv("TEST_EMAIL_TO", ""))
         
         print(f"📋 Result: {result}")
         

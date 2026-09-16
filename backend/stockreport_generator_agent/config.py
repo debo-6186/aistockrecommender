@@ -26,10 +26,6 @@ class Config:
     # Host Agent Configuration
     HOST_AGENT_PORT = int(os.getenv("HOST_AGENT_PORT", "10001"))
     STOCK_ANALYSER_AGENT_URL = os.getenv("STOCK_ANALYSER_AGENT_URL", "http://localhost:10002")
-    DOCUMENT_ANALYSER_AGENT_URL = os.getenv(
-        "DOCUMENT_ANALYSER_AGENT_URL",
-        os.getenv("STOCK_REPORT_ANALYSER_AGENT_URL", "http://localhost:10003"),
-    )
     STOCK_REPORT_GENERATOR_AGENT_URL = os.getenv(
         "STOCK_REPORT_GENERATOR_AGENT_URL", "http://localhost:10004"
     )

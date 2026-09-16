@@ -1,0 +1,20 @@
+[project]
+name = "stock-report-generator-agent"
+version = "0.1.0"
+description = "Report generator agent for the A2A project - writes up a finished allocation and emails it."
+requires-python = ">=3.10"
+dependencies = [
+    "a2a-sdk==0.3.6",
+    "google-adk>=1.14.1",
+    "python-dotenv",
+    "uvicorn",
+    "google-genai",
+    "pydantic>=2.0.0",
+    # Posting the rendered report to the delivery webhook
+    "requests>=2.31.0",
+    # Postgres-backed ADK sessions, and the report handoff row
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "asyncpg>=0.29.0",
+    "sse-starlette>=3.4.11",
+]

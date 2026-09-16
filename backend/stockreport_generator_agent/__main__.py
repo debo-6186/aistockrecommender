@@ -1,4 +1,3 @@
-import logging
 import os
 
 import uvicorn
@@ -11,18 +10,24 @@ from a2a.types import (
     AgentSkill,
 )
 from agent import create_agent
-from agent_executor import StockReportAnalyserAgentExecutor
+from agent_executor import StockReportGeneratorAgentExecutor
 from dotenv import load_dotenv
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from limited_context_session_service import LimitedContextSessionService
+from logger import setup_logging, get_logger
+
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from agent_core.sessions import get_session_service
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 class MissingAPIKeyError(Exception):
@@ -33,8 +38,9 @@ class MissingAPIKeyError(Exception):
 
 def main():
     """Starts the agent server."""
-    host = "localhost"
-    port = 10003
+    host = "0.0.0.0"  # Listen on all interfaces to accept connections from other containers
+    port = 10004
+    advertised = os.getenv("STOCK_REPORT_GENERATOR_AGENT_URL", f"http://localhost:{port}")
     try:
         # Check for API key only if Vertex AI is not configured
         if not os.getenv("GOOGLE_GENAI_USE_VERTEXAI") == "TRUE":
@@ -45,16 +51,26 @@ def main():
 
         capabilities = AgentCapabilities(streaming=True)
         skill = AgentSkill(
-            id="stock_report_analyse",
-            name="Analyse stock reports",
-            description="Analyze stock reports, earnings statements, quarterly reports, and other financial documents to provide detailed financial analysis and investment insights.",
-            tags=["stock", "report", "analysis", "earnings", "financial"],
-            examples=["Analyze this quarterly earnings report", "Review this company's financial statements"],
+            id="generate_stock_report",
+            name="Generate and send a stock report",
+            description=(
+                "Turn a finished stock allocation into a readable report - a covering "
+                "note explaining what it recommends and why - and email it to the "
+                "investor."
+            ),
+            tags=["report", "email", "portfolio", "delivery"],
+            examples=[
+                "Generate and send the report for this session",
+                "Write up the allocation and email it",
+            ],
         )
         agent_card = AgentCard(
-            name="stock_report_analyser_agent",
-            description="An agent that analyzes stock reports, earnings statements, and financial documents to provide comprehensive financial analysis and investment recommendations.",
-            url=f"http://{host}:{port}/",
+            name="stock_report_generator_agent",
+            description=(
+                "Turns a finished stock allocation into a readable report and delivers "
+                "it to the investor by email."
+            ),
+            url=f"{advertised.rstrip('/')}/",
             version="1.0.0",
             defaultInputModes=["text/plain"],
             defaultOutputModes=["text/plain"],
@@ -67,10 +83,10 @@ def main():
             app_name=agent_card.name,
             agent=adk_agent,
             artifact_service=InMemoryArtifactService(),
-            session_service=LimitedContextSessionService(max_messages=6),  # Limit context to prevent overflow
+            session_service=get_session_service(),
             memory_service=InMemoryMemoryService(),
         )
-        agent_executor = StockReportAnalyserAgentExecutor(runner)
+        agent_executor = StockReportGeneratorAgentExecutor(runner)
 
         request_handler = DefaultRequestHandler(
             agent_executor=agent_executor,
@@ -80,7 +96,22 @@ def main():
             agent_card=agent_card, http_handler=request_handler
         )
 
-        uvicorn.run(server.build(), host=host, port=port)
+        # Build the Starlette app
+        app = server.build()
+
+        # Add custom health check endpoint
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
+
+        async def health_check(request):
+            return JSONResponse({"status": "healthy", "service": "Stock Report Generator Agent"})
+
+        # Add health route to the app
+        app.routes.insert(0, Route("/health", health_check))
+
+        logger.info("Added custom /health endpoint")
+
+        uvicorn.run(app, host=host, port=port)
     except MissingAPIKeyError as e:
         logger.error(f"Error: {e}")
         exit(1)
