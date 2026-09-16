@@ -6,6 +6,7 @@ This replaces the adk web UI with a REST API for user conversations.
 
 import asyncio
 import base64
+import hmac
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -410,6 +411,20 @@ def get_current_user(authorization: str = Header(None)) -> dict:
     except Exception as e:
         logger.error(f"[AUTH] Token validation failed: {e}")
         raise
+
+
+def require_admin_key(x_admin_key: str = Header(None)) -> None:
+    """
+    Dependency guarding /api/admin/* endpoints with a static shared-secret
+    header, since these are operator tools, not end-user endpoints, and the
+    app has no concept of an admin-flagged Firebase user.
+    """
+    if not Config.ADMIN_API_KEY:
+        logger.error("[ADMIN] ADMIN_API_KEY not configured; refusing admin request")
+        raise HTTPException(status_code=503, detail="Admin API not configured")
+
+    if not x_admin_key or not hmac.compare_digest(x_admin_key, Config.ADMIN_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Admin-Key header")
 
 
 @asynccontextmanager
@@ -2073,7 +2088,7 @@ class AdminCreditsRequest(BaseModel):
 
 
 @app.post("/api/admin/credits")
-def admin_credits_endpoint(request: AdminCreditsRequest):
+def admin_credits_endpoint(request: AdminCreditsRequest, _admin: None = Depends(require_admin_key)):
     """
     Single admin endpoint to manage user credits, max reports, and whitelist status.
 
@@ -2175,7 +2190,7 @@ def admin_credits_endpoint(request: AdminCreditsRequest):
 
 
 @app.get("/api/admin/credits/{email}")
-def get_admin_credits_info(email: str):
+def get_admin_credits_info(email: str, _admin: None = Depends(require_admin_key)):
     """
     Get user credits, max reports, and whitelist information.
 

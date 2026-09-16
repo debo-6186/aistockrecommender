@@ -24,6 +24,9 @@ class Config:
     FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "warm-rookery-461602-i8")
     FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
 
+    # Admin API key required on /api/admin/* endpoints
+    ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+
     # Host Agent Configuration
     HOST_AGENT_PORT = int(os.getenv("HOST_AGENT_PORT", "10001"))
     STOCK_ANALYSER_AGENT_URL = os.getenv("STOCK_ANALYSER_AGENT_URL", "http://localhost:10002")
