@@ -85,6 +85,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-FALSE}
       - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-finance_a2a}
       - MCP_DIRECTORY=/app/finhub-mcp
       - ENVIRONMENT=production
@@ -126,6 +127,7 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-FALSE}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-finance_a2a}
       - REDIS_URL=redis://redis:6379
